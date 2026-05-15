@@ -28,7 +28,9 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'kupon-kurban-1447-h';
+        
+        // PERBAIKAN UTAMA: Mengunci appId agar sama persis dengan nama dokumen manual di database Anda
+        const appId = 'kupon-kurban-1447-h';
 
         window.db = db;
         window.auth = auth;
@@ -38,6 +40,7 @@
         window.setDoc = setDoc;
         window.deleteDoc = deleteDoc;
         window.writeBatch = writeBatch;
+        window.collection = collection; // Diperbaiki agar sistem bisa membaca database koleksi
         window.getDocs = getDocs; // Diekspor untuk verifikasi login
         window.query = query;
         window.where = where;
@@ -294,11 +297,14 @@
                         <path d="M12 5v14" stroke-dasharray="4 4"></path>
                     </svg>
                 </div>
-                <h2 id="page-title" class="text-xl sm:text-2xl font-black tracking-tight text-blue-800 leading-none uppercase italic drop-shadow-sm">Dashboard</h2>
+                <div>
+                    <h2 id="page-title" class="text-xl sm:text-2xl font-black tracking-tight text-blue-800 leading-none uppercase italic drop-shadow-sm">Dashboard</h2>
+                    <p id="user-greeting" class="text-[10px] sm:text-xs font-bold text-slate-500 mt-0.5 hidden">Ahlan, <span id="display-username" class="text-blue-600"></span></p>
+                </div>
             </div>
             
-            <button onclick="showWelcomeScreen()" class="p-2.5 sm:p-3 bg-white/60 backdrop-blur border border-white/60 rounded-xl shadow-sm hover:bg-blue-50 active:scale-95 transition-all text-blue-800" title="Halaman Depan">
-                <i data-lucide="home" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+            <button onclick="showWelcomeScreen()" class="p-2.5 sm:p-3 bg-white/60 backdrop-blur border border-white/60 rounded-xl shadow-sm hover:bg-blue-50 active:scale-95 transition-all text-blue-800" title="Keluar">
+                <i data-lucide="log-out" class="w-4 h-4 sm:w-5 sm:h-5"></i>
             </button>
         </header>
 
@@ -529,6 +535,7 @@
         window.currentFacingMode = "environment"; 
         
         let isLoginMode = true;
+        window.loggedInName = "";
 
         window.toggleAuthMode = () => {
             isLoginMode = !isLoginMode;
@@ -605,13 +612,13 @@
                 }
 
                 // 3. Masukkan ke database admins (Registrasi)
-                const newAdminRef = window.doc(window.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'admins'));
+                const newAdminRef = window.doc(adminsRef);
                 await window.setDoc(newAdminRef, { name: nameInput, email: emailInput, password: passwordInput });
 
-                window.loggedInEmail = emailInput;
-                if(window.startCouponSync) window.startCouponSync();
-                showToast('success', 'Pendaftaran Berhasil! Membuka sistem...');
-                closeWelcomeScreen();
+                showToast('success', 'Pendaftaran Berhasil! Silakan Masuk.');
+                window.toggleAuthMode();
+                document.getElementById('login-password').value = '';
+                resetAuthBtn();
 
             } catch (error) {
                 console.error("Register Error:", error);
@@ -633,6 +640,9 @@
             try {
                 if (emailInput === 'admin@kuponku.com' && passwordInput === 'admin123') {
                     window.loggedInEmail = emailInput;
+                    window.loggedInName = "Admin Utama";
+                    document.getElementById('display-username').innerText = window.loggedInName;
+                    document.getElementById('user-greeting').classList.remove('hidden');
                     if(window.startCouponSync) window.startCouponSync();
                     showToast('success', 'Login Berhasil!');
                     closeWelcomeScreen();
@@ -643,14 +653,20 @@
                 const querySnapshot = await window.getDocs(adminsRef);
                 
                 let isAllowed = false;
+                let loggedName = "";
                 querySnapshot.forEach((doc) => {
                     if (doc.data().email === emailInput && doc.data().password === passwordInput) {
                         isAllowed = true;
+                        // PERBAIKAN: Menarik nama langsung dari database
+                        loggedName = doc.data().name || emailInput.split('@')[0];
                     }
                 });
 
                 if (isAllowed) {
                     window.loggedInEmail = emailInput;
+                    window.loggedInName = loggedName;
+                    document.getElementById('display-username').innerText = window.loggedInName;
+                    document.getElementById('user-greeting').classList.remove('hidden');
                     if(window.startCouponSync) window.startCouponSync();
                     showToast('success', 'Login Berhasil!');
                     closeWelcomeScreen();
@@ -691,6 +707,8 @@
             document.getElementById('login-password').value = '';
             document.getElementById('auth-name').value = '';
             window.loggedInEmail = '';
+            window.loggedInName = '';
+            document.getElementById('user-greeting').classList.add('hidden');
             
             isLoginMode = true;
             document.getElementById('name-field-container').classList.add('hidden');
@@ -911,7 +929,7 @@
             const catatan = document.getElementById('conf-catatan').value.trim();
             
             try {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'config'), { lembaga, tahun, prefix, tanggal, jam, tempat, catatan }, { merge: true });
+                await window.setDoc(window.doc(window.db, 'artifacts', window.appId, 'public', 'config'), { lembaga, tahun, prefix, tanggal, jam, tempat, catatan }, { merge: true });
                 showToast('success', 'Pengaturan Tersimpan!');
             } catch (error) {
                 showToast('error', 'Gagal menyimpan pengaturan.');
