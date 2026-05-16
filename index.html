@@ -638,17 +638,6 @@
             btn.disabled = true;
 
             try {
-                if (emailInput === 'admin@kuponku.com' && passwordInput === 'admin123') {
-                    window.loggedInEmail = emailInput;
-                    window.loggedInName = "Admin Utama";
-                    document.getElementById('display-username').innerText = window.loggedInName;
-                    document.getElementById('user-greeting').classList.remove('hidden');
-                    if(window.startCouponSync) window.startCouponSync();
-                    showToast('success', 'Login Berhasil!');
-                    closeWelcomeScreen();
-                    return;
-                }
-
                 const adminsRef = window.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'admins');
                 const querySnapshot = await window.getDocs(adminsRef);
                 
